@@ -244,7 +244,7 @@ namespace test {
 					auto* GetEngineFactoryVk = Diligent::LoadGraphicsEngineVk();
 					auto* pFactoryVk = GetEngineFactoryVk();
 	#else
-					auto* pFactoryOpenGL = Diligent::GetEngineFactoryVk();
+					auto* pFactoryVk = Diligent::GetEngineFactoryVk();
 	#endif
 					this->_pEngineFactory = pFactoryVk;
 
