@@ -1,8 +1,14 @@
 cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)
 
+# SETUP CPM -----
+include("cmake/cpm.cmake")
+CPMUsePackageLock(package-lock.cmake)
+# ---------------
+
 # Versioning
 project("TEST" DESCRIPTION "TEST" LANGUAGES C CXX)
 # ---
+
 
 # Fix cmake paths
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
@@ -14,7 +20,9 @@ list(PREPEND CONAN_GENERATORS_FOLDER ${CMAKE_BINARY_DIR})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSPDLOG_FMT_EXTERNAL -DNOMINMAX")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_EXTENSIONS ON)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}")
 
 # Apple needs this flag to compile mixed objective/c++
 if(APPLE AND NOT XCODE)
@@ -48,7 +56,25 @@ set(CMAKE_SKIP_BUILD_RPATH TRUE)
 
 
 ## LIBS -----
+set(DILIGENT_NO_DIRECT3D11 ON)
+set(DILIGENT_NO_DIRECT3D12 ON)
 add_subdirectory(DiligentCore)
+
+CPMAddPackage(
+    NAME
+        glfw
+    GITHUB_REPOSITORY
+        glfw/glfw
+    GIT_TAG
+        3.3.8
+    OPTIONS
+        "GLFW_BUILD_DOCS OFF"
+        "GLFW_BUILD_EXAMPLES OFF"
+        "GLFW_BUILD_TESTS OFF"
+        "GLFW_INSTALL OFF"
+        "GLFW_USE_OSMESA OFF"
+        "GLFW_VULKAN_STATIC OFF"
+        "USE_MSVC_RUNTIME_LIBRARY_DLL OFF")
 ## ----------
 
 # Grab source files
@@ -56,23 +82,38 @@ file(GLOB_RECURSE TEST_SOURCES "include/*.hpp" "src/*.cpp")
 
 # Project setup
 set(output_target test)
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_HOME_DIRECTORY}bin/${CMAKE_BUILD_TYPE})
-
 add_executable(${output_target} ${TEST_SOURCES})
-target_include_directories(${output_target} PRIVATE "include")
+target_include_directories(${output_target} PRIVATE "include" "./DiligentCore")
 target_compile_features(${output_target} PRIVATE cxx_std_${CMAKE_CXX_STANDARD})
 target_compile_options(${output_target} PRIVATE -DUNICODE -DENGINE_DLL)
-target_link_libraries(${output_target} PRIVATE
-    Diligent-GraphicsEngineD3D11-shared
-    Diligent-GraphicsEngineOpenGL-shared
-    Diligent-GraphicsEngineD3D12-shared
-    Diligent-GraphicsEngineVk-shared
-)
 target_compile_definitions(${output_target} PRIVATE NOMINMAX)
-copy_required_dlls(${output_target})
+target_link_libraries(${output_target} PRIVATE
+    glfw
+)
+
+if(D3D11_SUPPORTED)
+    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D11-shared)
+endif()
+
+if(D3D12_SUPPORTED)
+    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D12-shared)
+endif()
+
+if(GL_SUPPORTED)
+    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineOpenGL-shared)
+endif()
+
+if(VULKAN_SUPPORTED)
+    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineVk-shared)
+endif()
+
+if(METAL_SUPPORTED)
+    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineMetal-shared)
+endif()
 
 if(NOT WIN32)
     set_target_properties(${output_target} PROPERTIES LINK_FLAGS -Wl,-rpath,'\$ORIGIN')
 else()
+    copy_required_dlls(${output_target})
     add_compile_options("/EHsc")
 endif()

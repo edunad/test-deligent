@@ -14,6 +14,8 @@ int main(int /*argc*/, char* /*argv*/[]) {
 
 	test::TestGame game;
 	game.init();
+	game.update();
+	game.shutdown();
 
 	return 0;
 }

@@ -1,70 +1,46 @@
 #pragma once
 
-#ifndef PLATFORM_WIN32
-	#define PLATFORM_WIN32 1
-#endif
+#include <Common/interface/RefCntAutoPtr.hpp>
 
-#ifndef ENGINE_DLL
-	#define ENGINE_DLL 1
-#endif
+#include <Graphics/GraphicsEngine/interface/DeviceContext.h>
+#include <Graphics/GraphicsEngine/interface/GraphicsTypes.h>
+#include <Graphics/GraphicsEngine/interface/PipelineState.h>
+#include <Graphics/GraphicsEngine/interface/RenderDevice.h>
+#include <Graphics/GraphicsEngine/interface/SwapChain.h>
 
-#ifndef D3D11_SUPPORTED
-	#define D3D11_SUPPORTED 1
-#endif
+#include <memory>
 
-#ifndef D3D12_SUPPORTED
-	#define D3D12_SUPPORTED 1
-#endif
-
-#ifndef GL_SUPPORTED
-	#define GL_SUPPORTED 1
-#endif
-
-#ifndef VULKAN_SUPPORTED
-	#define VULKAN_SUPPORTED 1
-#endif
-
-// #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
-// #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
-// #include "Graphics/GraphicsEngine/interface/SwapChain.h"
-// #include "Graphics/GraphicsEngineD3D11/interface/EngineFactoryD3D11.h"
-// #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
-// #include "Graphics/GraphicsEngineOpenGL/interface/EngineFactoryOpenGL.h"
-// #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
-
-#include <chrono>
-#include <thread>
+struct GLFWwindow;
 
 namespace test {
 
-	using namespace std::chrono_literals;
+	using TClock = std::chrono::high_resolution_clock;
+	using TSeconds = std::chrono::duration<float>;
 
 	class TestGame {
 	protected:
-		bool _shutdown = false;
+		bool _initialized = false;
+
+		GLFWwindow* _handle = nullptr;
+
+		Diligent::RefCntAutoPtr<Diligent::IRenderDevice> _pDevice;
+		Diligent::RefCntAutoPtr<Diligent::IDeviceContext> _pImmediateContext;
+		Diligent::RefCntAutoPtr<Diligent::ISwapChain> _pSwapChain;
+		Diligent::RefCntAutoPtr<Diligent::IPipelineState> _pPSO;
+
+		TClock::time_point _lastUpdate = {};
 
 	public:
-		void init() {
-			/*SwapChainDesc SCDesc;
-			EngineD3D11CreateInfo EngineCI;
-#if ENGINE_DLL
-			// Load the dll and import GetEngineFactoryD3D11() function
-			auto* GetEngineFactoryD3D11 = LoadGraphicsEngineD3D11();
-#endif
-			auto* pFactoryD3D11 = GetEngineFactoryD3D11();
-			pFactoryD3D11->CreateDeviceAndContextsD3D11(EngineCI, &m_pDevice, &m_pImmediateContext);
-			Win32NativeWindow Window{hWnd};
-			pFactoryD3D11->CreateSwapChainD3D11(m_pDevice, m_pImmediateContext, SCDesc, FullScreenModeDesc{}, Window, &m_pSwapChain);
-		*/
-		}
+		void init(Diligent::RENDER_DEVICE_TYPE type = Diligent::RENDER_DEVICE_TYPE::RENDER_DEVICE_TYPE_UNDEFINED);
+		void createWindow(int api, const std::string& title);
+		void createEngine(Diligent::RENDER_DEVICE_TYPE type);
 
-		void update() {
-			while (!this->_shutdown) {
-				std::this_thread::sleep_for(1ms);
-			}
-		}
+		void initGame();
+		void update();
+		void shutdown();
 
-		void shutdown() {
-		}
+		static void callbacks_resize(GLFWwindow* whandle, int width, int height);
+
+		void draw();
 	};
 } // namespace test
