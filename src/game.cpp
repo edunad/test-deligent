@@ -120,7 +120,7 @@ namespace test {
 
 		int APIHint = GLFW_NO_API;
 #if !PLATFORM_WIN32
-		if (devType == RENDER_DEVICE_TYPE_GL) {
+		if (devType == Diligent::RENDER_DEVICE_TYPE_GL) {
 			// On platforms other than Windows Diligent Engine
 			// attaches to existing OpenGL context
 			APIHint = GLFW_OPENGL_API;
@@ -169,13 +169,13 @@ namespace test {
 		Diligent::LinuxNativeWindow Window;
 		Window.WindowId = glfwGetX11Window(GLFWHANDLE);
 		Window.pDisplay = glfwGetX11Display();
-		if (type == RENDER_DEVICE_TYPE_GL)
+		if (type == Diligent::RENDER_DEVICE_TYPE_GL)
 			glfwMakeContextCurrent(GLFWHANDLE);
 #endif
 
 #if PLATFORM_MACOS
 		Diligent::MacOSNativeWindow Window;
-		if (type == RENDER_DEVICE_TYPE_GL)
+		if (type == Diligent::RENDER_DEVICE_TYPE_GL)
 			glfwMakeContextCurrent(GLFWHANDLE);
 		else
 			Window.pNSView = GetNSWindowView(GLFWHANDLE);
