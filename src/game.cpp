@@ -220,7 +220,7 @@ namespace test {
 #if GL_SUPPORTED
 			case Diligent::RENDER_DEVICE_TYPE_GL:
 				{
-	#if EXPLICITLY_LOAD_ENGINE_GL_DLL
+	#if ENGINE_DLL
 					// Load the dll and import GetEngineFactoryOpenGL() function
 					auto GetEngineFactoryOpenGL = Diligent::LoadGraphicsEngineOpenGL();
 	#endif
@@ -237,7 +237,7 @@ namespace test {
 #if VULKAN_SUPPORTED
 			case Diligent::RENDER_DEVICE_TYPE_VULKAN:
 				{
-	#if EXPLICITLY_LOAD_ENGINE_VK_DLL
+	#if ENGINE_DLL
 					// Load the dll and import GetEngineFactoryVk() function
 					auto* GetEngineFactoryVk = Diligent::LoadGraphicsEngineVk();
 	#endif
