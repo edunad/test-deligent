@@ -45,7 +45,7 @@ else()
     set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /ignore:4099")
 
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /permissive-")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /permissive-") # Breaks deligent
 endif()
 
 set(CMAKE_SKIP_RPATH TRUE)
@@ -54,8 +54,6 @@ set(CMAKE_SKIP_BUILD_RPATH TRUE)
 
 
 ## LIBS -----
-set(DILIGENT_NO_DIRECT3D11 ON)
-set(DILIGENT_NO_DIRECT3D12 ON)
 add_subdirectory(DiligentCore)
 
 CPMAddPackage(
@@ -77,8 +75,8 @@ CPMAddPackage(
 
 ## ASSETS ----
 set(SHADERS
-    Assets/cube.vsh
-    Assets/cube.psh
+    assets/cube.vsh
+    assets/cube.psh
 )
 
 if(${CMAKE_VERSION} VERSION_LESS "3.26.0")

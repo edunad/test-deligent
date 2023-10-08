@@ -71,10 +71,10 @@
 #include <test/game.hpp>
 
 #include <GLFW/glfw3native.h>
-#include <math.h>
 
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <thread>
 
 using namespace std::chrono_literals;
@@ -188,7 +188,7 @@ namespace test {
 			case Diligent::RENDER_DEVICE_TYPE_D3D11:
 				{
 	#if ENGINE_DLL
-					auto* GetEngineFactoryD3D11 = Diligent::LoadGraphicsEngineVk(); // Load the dll and import GetEngineFactoryD3D11() function
+					auto* GetEngineFactoryD3D11 = Diligent::LoadGraphicsEngineD3D11(); // Load the dll and import GetEngineFactoryD3D11() function
 	#endif
 					auto* pFactoryD3D11 = GetEngineFactoryD3D11();
 					this->_pEngineFactory = pFactoryD3D11;
