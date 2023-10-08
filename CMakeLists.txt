@@ -31,15 +31,13 @@ endif()
 
 # Linux and Wayland support
 if(NOT WIN32)
-    #set(RAWRBOX_EXTRA_LIBS pthread GL X11)
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-psabi")
-#
-    #if(RAWRBOX_USE_WAYLAND)
-    #    list(APPEND RAWRBOX_EXTRA_LIBS wayland-egl)
-#
-    #    set(GLFW_BUILD_WAYLAND ON CACHE INTERNAL "")
-    #    set(BGFX_USE_WAYLAND ON CACHE INTERNAL "")
-    #endif()
+    set(EXTRA_LIBS pthread GL X11)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-psabi")
+
+    if(USE_WAYLAND)
+        list(APPEND EXTRA_LIBS wayland-egl)
+        set(GLFW_BUILD_WAYLAND ON CACHE INTERNAL "")
+    endif()
 else()
     # Ignore warnings about missing pdb
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ignore:4099")
@@ -77,18 +75,44 @@ CPMAddPackage(
         "USE_MSVC_RUNTIME_LIBRARY_DLL OFF")
 ## ----------
 
+## ASSETS ----
+set(SHADERS
+    Assets/cube.vsh
+    Assets/cube.psh
+)
+
+if(${CMAKE_VERSION} VERSION_LESS "3.26.0")
+    add_custom_target(
+        copy_resources ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/assets
+                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets
+        COMMENT "Copying resources into binary directory")
+else()
+    add_custom_target(
+        copy_resources ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${PROJECT_SOURCE_DIR}/assets
+            ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets
+        COMMENT "Copying resources into binary directory")
+endif()
+
+## ------
+
 # Grab source files
 file(GLOB_RECURSE TEST_SOURCES "include/*.hpp" "src/*.cpp")
 
 # Project setup
 set(output_target test)
-add_executable(${output_target} ${TEST_SOURCES})
+add_executable(${output_target} ${TEST_SOURCES} ${SHADERS})
+add_dependencies(${output_target} copy_resources)
 target_include_directories(${output_target} PRIVATE "include" "./DiligentCore")
 target_compile_features(${output_target} PRIVATE cxx_std_${CMAKE_CXX_STANDARD})
 target_compile_options(${output_target} PRIVATE -DUNICODE -DENGINE_DLL)
 target_compile_definitions(${output_target} PRIVATE NOMINMAX)
 target_link_libraries(${output_target} PRIVATE
+    Diligent-GraphicsTools
+    #Diligent-ShaderTools
     glfw
+    ${EXTRA_LIBS}
 )
 
 if(D3D11_SUPPORTED)
@@ -117,3 +141,5 @@ else()
     copy_required_dlls(${output_target})
     add_compile_options("/EHsc")
 endif()
+
+

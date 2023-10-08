@@ -1,3 +1,4 @@
+
 #ifndef ENGINE_DLL
 	#define ENGINE_DLL 1
 #endif
@@ -64,9 +65,13 @@
 	#define GLFW_EXPOSE_NATIVE_WIN32
 	#define GLFW_EXPOSE_NATIVE_WGL
 #endif //
+
+#include <Graphics/GraphicsTools/interface/MapHelper.hpp>
+#include <Platforms/Basic/interface/DebugUtilities.hpp>
 #include <test/game.hpp>
 
 #include <GLFW/glfw3native.h>
+#include <math.h>
 
 #include <array>
 #include <chrono>
@@ -75,53 +80,6 @@
 using namespace std::chrono_literals;
 
 #define GLFWHANDLE (std::bit_cast<GLFWwindow*>(_handle))
-
-// SHADERS -------
-static const char* VSSource = R"(
-struct PSInput
-{
-    float4 Pos   : SV_POSITION;
-    float3 Color : COLOR;
-};
-
-void main(in  uint    VertId : SV_VertexID,
-          out PSInput PSIn)
-{
-    float4 Pos[3];
-    Pos[0] = float4(-0.5, -0.5, 0.0, 1.0);
-    Pos[1] = float4( 0.0, +0.5, 0.0, 1.0);
-    Pos[2] = float4(+0.5, -0.5, 0.0, 1.0);
-
-    float3 Col[3];
-    Col[0] = float3(1.0, 0.0, 0.0); // red
-    Col[1] = float3(0.0, 1.0, 0.0); // green
-    Col[2] = float3(0.0, 0.0, 1.0); // blue
-
-    PSIn.Pos   = Pos[VertId];
-    PSIn.Color = Col[VertId];
-}
-)";
-
-// Pixel shader simply outputs interpolated vertex color
-static const char* PSSource = R"(
-struct PSInput
-{
-    float4 Pos   : SV_POSITION;
-    float3 Color : COLOR;
-};
-
-struct PSOutput
-{
-    float4 Color : SV_TARGET;
-};
-
-void main(in  PSInput  PSIn,
-          out PSOutput PSOut)
-{
-    PSOut.Color = float4(PSIn.Color.rgb, 1.0);
-}
-)";
-// ----------------------------
 
 namespace test {
 	static TestGame& glfwHandleToRenderer(GLFWwindow* ptr) {
@@ -233,6 +191,7 @@ namespace test {
 					auto* GetEngineFactoryD3D11 = Diligent::LoadGraphicsEngineVk(); // Load the dll and import GetEngineFactoryD3D11() function
 	#endif
 					auto* pFactoryD3D11 = GetEngineFactoryD3D11();
+					this->_pEngineFactory = pFactoryD3D11;
 
 					Diligent::EngineD3D11CreateInfo EngineCI;
 					pFactoryD3D11->CreateDeviceAndContextsD3D11(EngineCI, &this->_pDevice, &this->_pImmediateContext);
@@ -249,6 +208,7 @@ namespace test {
 					auto* GetEngineFactoryD3D12 = Diligent::LoadGraphicsEngineD3D12();
 	#endif
 					auto* pFactoryD3D12 = GetEngineFactoryD3D12();
+					this->_pEngineFactory = pFactoryD3D12;
 
 					Diligent::EngineD3D12CreateInfo EngineCI;
 					pFactoryD3D12->CreateDeviceAndContextsD3D12(EngineCI, &this->_pDevice, &this->_pImmediateContext);
@@ -265,6 +225,7 @@ namespace test {
 					auto GetEngineFactoryOpenGL = Diligent::LoadGraphicsEngineOpenGL();
 	#endif
 					auto* pFactoryOpenGL = GetEngineFactoryOpenGL();
+					this->_pEngineFactory = pFactoryOpenGL;
 
 					Diligent::EngineGLCreateInfo EngineCI;
 					EngineCI.Window = Window;
@@ -281,6 +242,7 @@ namespace test {
 					auto* GetEngineFactoryVk = Diligent::LoadGraphicsEngineVk();
 	#endif
 					auto* pFactoryVk = GetEngineFactoryVk();
+					this->_pEngineFactory = pFactoryVk;
 
 					Diligent::EngineVkCreateInfo EngineCI;
 					pFactoryVk->CreateDeviceAndContextsVk(EngineCI, &this->_pDevice, &this->_pImmediateContext);
@@ -318,38 +280,56 @@ namespace test {
 
 		// Pipeline state name is used by the engine to report issues.
 		// It is always a good idea to give objects descriptive names.
-		PSOCreateInfo.PSODesc.Name = "Simple triangle PSO";
+		PSOCreateInfo.PSODesc.Name = "Cube PSO";
 
 		// This is a graphics pipeline
 		PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
 
-		// This tutorial will render to a single render target
-		PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
-		// Set render target format which is the format of the swap chain's color buffer
-		PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = this->_pSwapChain->GetDesc().ColorBufferFormat;
-		// Use the depth buffer format from the swap chain
-		PSOCreateInfo.GraphicsPipeline.DSVFormat = this->_pSwapChain->GetDesc().DepthBufferFormat;
-		// Primitive topology defines what kind of primitives will be rendered by this pipeline state
-		PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-		// No back face culling for this tutorial
-		PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
-		// Disable depth testing
-		PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = false;
+		// clang-format off
+    // This tutorial will render to a single render target
+    PSOCreateInfo.GraphicsPipeline.NumRenderTargets             = 1;
+    // Set render target format which is the format of the swap chain's color buffer
+    PSOCreateInfo.GraphicsPipeline.RTVFormats[0]                = this->_pSwapChain->GetDesc().ColorBufferFormat;
+    // Set depth buffer format which is the format of the swap chain's back buffer
+    PSOCreateInfo.GraphicsPipeline.DSVFormat                    = this->_pSwapChain->GetDesc().DepthBufferFormat;
+    // Primitive topology defines what kind of primitives will be rendered by this pipeline state
+    PSOCreateInfo.GraphicsPipeline.PrimitiveTopology            = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    // Cull back faces
+    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode      = Diligent::CULL_MODE_BACK;
+    // Enable depth testing
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
+		// clang-format on
 
 		Diligent::ShaderCreateInfo ShaderCI;
 		// Tell the system that the shader source code is in HLSL.
 		// For OpenGL, the engine will convert this into GLSL under the hood.
 		ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
+
 		// OpenGL backend requires emulated combined HLSL texture samplers (g_Texture + g_Texture_sampler combination)
 		ShaderCI.Desc.UseCombinedTextureSamplers = true;
+
+		// In this tutorial, we will load shaders from file. To be able to do that,
+		// we need to create a shader source stream factory
+		Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory> pShaderSourceFactory;
+		this->_pEngineFactory->CreateDefaultShaderSourceStreamFactory("assets", &pShaderSourceFactory);
+		ShaderCI.pShaderSourceStreamFactory = pShaderSourceFactory;
 		// Create a vertex shader
 		Diligent::RefCntAutoPtr<Diligent::IShader> pVS;
 		{
 			ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
 			ShaderCI.EntryPoint = "main";
-			ShaderCI.Desc.Name = "Triangle vertex shader";
-			ShaderCI.Source = VSSource;
+			ShaderCI.Desc.Name = "Cube VS";
+			ShaderCI.FilePath = "cube.vsh";
 			this->_pDevice->CreateShader(ShaderCI, &pVS);
+			// Create dynamic uniform buffer that will store our transformation matrix
+			// Dynamic buffers can be frequently updated by the CPU
+			Diligent::BufferDesc CBDesc;
+			CBDesc.Name = "VS constants CB";
+			CBDesc.Size = sizeof(Diligent::float4x4);
+			CBDesc.Usage = Diligent::USAGE_DYNAMIC;
+			CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+			CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+			this->_pDevice->CreateBuffer(CBDesc, nullptr, &this->_VSConstants);
 		}
 
 		// Create a pixel shader
@@ -357,17 +337,172 @@ namespace test {
 		{
 			ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
 			ShaderCI.EntryPoint = "main";
-			ShaderCI.Desc.Name = "Triangle pixel shader";
-			ShaderCI.Source = PSSource;
+			ShaderCI.Desc.Name = "Cube PS";
+			ShaderCI.FilePath = "cube.psh";
 			this->_pDevice->CreateShader(ShaderCI, &pPS);
 		}
 
-		// Finally, create the pipeline state
+		// Define vertex shader input layout
+		std::array<Diligent::LayoutElement, 2> LayoutElems =
+		    {
+			// Attribute 0 - vertex position
+			Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, false},
+			// Attribute 1 - vertex color
+			Diligent::LayoutElement{1, 0, 4, Diligent::VT_FLOAT32, false}};
+
+		PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems.data();
+		PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = static_cast<uint32_t>(LayoutElems.size());
+
 		PSOCreateInfo.pVS = pVS;
 		PSOCreateInfo.pPS = pPS;
+
+		// Define variable type that will be used by default
+		PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+
 		this->_pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &this->_pPSO);
 
+		// Since we did not explcitly specify the type for 'Constants' variable, default
+		// type (SHADER_RESOURCE_VARIABLE_TYPE_STATIC) will be used. Static variables never
+		// change and are bound directly through the pipeline state object.
+		this->_pPSO->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "Constants")->Set(this->_VSConstants);
+
+		// Create a shader resource binding object and bind all static resources in it
+		this->_pPSO->CreateShaderResourceBinding(&this->_pSRB, true);
+
+		this->createCube();
+	}
+
+	void TestGame::createCube() {
+		// Layout of this structure matches the one we defined in the pipeline state
+		struct Vertex {
+			Diligent::float3 pos;
+			Diligent::float4 color;
+		};
+
+		// Cube vertices
+
+		//      (-1,+1,+1)________________(+1,+1,+1)
+		//               /|              /|
+		//              / |             / |
+		//             /  |            /  |
+		//            /   |           /   |
+		//(-1,-1,+1) /____|__________/(+1,-1,+1)
+		//           |    |__________|____|
+		//           |   /(-1,+1,-1) |    /(+1,+1,-1)
+		//           |  /            |   /
+		//           | /             |  /
+		//           |/              | /
+		//           /_______________|/
+		//        (-1,-1,-1)       (+1,-1,-1)
+		//
+
+		constexpr Vertex CubeVerts[8] =
+		    {
+			{Diligent::float3{-1, -1, -1}, Diligent::float4{1, 0, 0, 1}},
+			{Diligent::float3{-1, +1, -1}, Diligent::float4{0, 1, 0, 1}},
+			{Diligent::float3{+1, +1, -1}, Diligent::float4{0, 0, 1, 1}},
+			{Diligent::float3{+1, -1, -1}, Diligent::float4{1, 1, 1, 1}},
+
+			{Diligent::float3{-1, -1, +1}, Diligent::float4{1, 1, 0, 1}},
+			{Diligent::float3{-1, +1, +1}, Diligent::float4{0, 1, 1, 1}},
+			{Diligent::float3{+1, +1, +1}, Diligent::float4{1, 0, 1, 1}},
+			{Diligent::float3{+1, -1, +1}, Diligent::float4{0.2F, 0.2F, 0.2F, 1.F}},
+		    };
+
+		// Create a vertex buffer that stores cube vertices
+		Diligent::BufferDesc VertBuffDesc;
+		VertBuffDesc.Name = "Cube vertex buffer";
+		VertBuffDesc.Usage = Diligent::USAGE_IMMUTABLE;
+		VertBuffDesc.BindFlags = Diligent::BIND_VERTEX_BUFFER;
+		VertBuffDesc.Size = sizeof(CubeVerts);
+
+		Diligent::BufferData VBData;
+		VBData.pData = CubeVerts;
+		VBData.DataSize = sizeof(CubeVerts);
+
+		this->_pDevice->CreateBuffer(VertBuffDesc, &VBData, &this->_CubeVertexBuffer);
+
+		// INDICES -----------------------
+		constexpr uint32_t Indices[] =
+		    {
+			2, 0, 1, 2, 3, 0,
+			4, 6, 5, 4, 7, 6,
+			0, 7, 4, 0, 3, 7,
+			1, 0, 4, 1, 4, 5,
+			1, 5, 2, 5, 6, 2,
+			3, 6, 7, 3, 2, 6};
+
+		Diligent::BufferDesc IndBuffDesc;
+		IndBuffDesc.Name = "Cube index buffer";
+		IndBuffDesc.Usage = Diligent::USAGE_IMMUTABLE;
+		IndBuffDesc.BindFlags = Diligent::BIND_INDEX_BUFFER;
+		IndBuffDesc.Size = sizeof(Indices);
+
+		Diligent::BufferData IBData;
+		IBData.pData = Indices;
+		IBData.DataSize = sizeof(Indices);
+		this->_pDevice->CreateBuffer(IndBuffDesc, &IBData, &this->_CubeIndexBuffer);
+		// -------------------------------
+
 		this->_initialized = true;
+	}
+
+	Diligent::float4x4 TestGame::GetSurfacePretransformMatrix(const Diligent::float3& f3CameraViewAxis) const {
+		const auto& SCDesc = this->_pSwapChain->GetDesc();
+
+		switch (SCDesc.PreTransform) {
+			case Diligent::SURFACE_TRANSFORM_ROTATE_90:
+				// The image content is rotated 90 degrees clockwise.
+				return Diligent::float4x4::RotationArbitrary(f3CameraViewAxis, -Diligent::PI_F / 2.F);
+
+			case Diligent::SURFACE_TRANSFORM_ROTATE_180:
+				// The image content is rotated 180 degrees clockwise.
+				return Diligent::float4x4::RotationArbitrary(f3CameraViewAxis, -Diligent::PI_F);
+
+			case Diligent::SURFACE_TRANSFORM_ROTATE_270:
+				// The image content is rotated 270 degrees clockwise.
+				return Diligent::float4x4::RotationArbitrary(f3CameraViewAxis, -Diligent::PI_F * 3.F / 2.F);
+
+			case Diligent::SURFACE_TRANSFORM_OPTIMAL:
+				UNEXPECTED("SURFACE_TRANSFORM_OPTIMAL is only valid as parameter during swap chain initialization.");
+				return Diligent::float4x4::Identity();
+
+			case Diligent::SURFACE_TRANSFORM_HORIZONTAL_MIRROR:
+			case Diligent::SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_90:
+			case Diligent::SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_180:
+			case Diligent::SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270:
+				UNEXPECTED("Mirror transforms are not supported");
+				return Diligent::float4x4::Identity();
+
+			default:
+				return Diligent::float4x4::Identity();
+		}
+	}
+
+	Diligent::float4x4 TestGame::GetAdjustedProjectionMatrix(float FOV, float NearPlane, float FarPlane) const {
+		const auto& SCDesc = this->_pSwapChain->GetDesc();
+
+		float AspectRatio = static_cast<float>(SCDesc.Width) / static_cast<float>(SCDesc.Height);
+		float XScale = 0, YScale = 0;
+
+		if (SCDesc.PreTransform == Diligent::SURFACE_TRANSFORM_ROTATE_90 ||
+		    SCDesc.PreTransform == Diligent::SURFACE_TRANSFORM_ROTATE_270 ||
+		    SCDesc.PreTransform == Diligent::SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_90 ||
+		    SCDesc.PreTransform == Diligent::SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270) {
+			// When the screen is rotated, vertical FOV becomes horizontal FOV
+			XScale = 1.F / std::tan(FOV / 2.F);
+			// Aspect ratio is inversed
+			YScale = XScale * AspectRatio;
+		} else {
+			YScale = 1.F / std::tan(FOV / 2.F);
+			XScale = YScale / AspectRatio;
+		}
+
+		Diligent::float4x4 Proj;
+		Proj._11 = XScale;
+		Proj._22 = YScale;
+		Proj.SetNearFarClipPlanes(NearPlane, FarPlane, this->_pDevice->GetDeviceInfo().IsGLDevice());
+		return Proj;
 	}
 
 	void TestGame::update() {
@@ -383,34 +518,66 @@ namespace test {
 			const auto dt = std::chrono::duration_cast<TSeconds>(time - this->_lastUpdate).count();
 			this->_lastUpdate = time;
 
-			this->draw();
+			if (this->_initialized) {
+				// Apply rotation
+				Diligent::float4x4 CubeModelTransform = Diligent::float4x4::RotationY(this->_counter * 1.0F) * Diligent::float4x4::RotationX(-Diligent::PI_F * 0.1F);
+
+				// Camera is at (0, 0, -5) looking along the Z axis
+				Diligent::float4x4 View = Diligent::float4x4::Translation(0.F, 0.0F, 5.0F);
+				// Get pretransform matrix that rotates the scene according the surface orientation
+				auto SrfPreTransform = this->GetSurfacePretransformMatrix(Diligent::float3{0, 0, 1});
+
+				// Get projection matrix adjusted to the current screen orientation
+				auto Proj = GetAdjustedProjectionMatrix(Diligent::PI_F / 4.0F, 0.1F, 100.F);
+
+				// Compute world-view-projection matrix
+				this->_WorldViewProjMatrix = CubeModelTransform * View * SrfPreTransform * Proj;
+
+				this->draw();
+
+				this->_counter += 0.001F;
+			}
 		}
 	}
 
 	void TestGame::draw() {
-		if (!this->_initialized) return;
-
-		// Clear the back buffer
-		const std::array<float, 4> clearColor = {0.350F, 0.350F, 0.350F, 1.0F};
-
 		// Let the engine perform required state transitions
 		auto* pRTV = this->_pSwapChain->GetCurrentBackBufferRTV();
 		auto* pDSV = this->_pSwapChain->GetDepthBufferDSV();
+
+		const std::array<float, 4> clearColor = {0.350F, 0.350F, 0.350F, 1.0F};
+
 		this->_pImmediateContext->SetRenderTargets(1, &pRTV, pDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-		// Let the engine perform required state transitions
+		// Clear the back buffer
 		this->_pImmediateContext->ClearRenderTarget(pRTV, clearColor.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 		this->_pImmediateContext->ClearDepthStencil(pDSV, Diligent::CLEAR_DEPTH_FLAG, 1.F, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+		{
+			// Map the buffer and write current world-view-projection matrix
+			Diligent::MapHelper<Diligent::float4x4> CBConstants(this->_pImmediateContext, this->_VSConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+			*CBConstants = this->_WorldViewProjMatrix.Transpose();
+		}
+
+		// Bind vertex and index buffers
+		const uint64_t offset = 0;
+		Diligent::IBuffer* pBuffs[] = {this->_CubeVertexBuffer};
+		this->_pImmediateContext->SetVertexBuffers(0, 1, pBuffs, &offset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
+		this->_pImmediateContext->SetIndexBuffer(this->_CubeIndexBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
 		// Set the pipeline state in the immediate context
 		this->_pImmediateContext->SetPipelineState(this->_pPSO);
 
-		// Typically we should now call CommitShaderResources(), however shaders in this example don't
-		// use any resources.
+		// Commit shader resources. RESOURCE_STATE_TRANSITION_MODE_TRANSITION mode
+		// makes sure that resources are transitioned to required states.
+		this->_pImmediateContext->CommitShaderResources(this->_pSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-		Diligent::DrawAttribs drawAttrs;
-		drawAttrs.NumVertices = 3; // Render 3 vertices
-		this->_pImmediateContext->Draw(drawAttrs);
+		Diligent::DrawIndexedAttribs DrawAttrs;    // This is an indexed draw call
+		DrawAttrs.IndexType = Diligent::VT_UINT32; // Index type
+		DrawAttrs.NumIndices = 36;
+		// Verify the state of vertex and index buffers
+		DrawAttrs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
+		this->_pImmediateContext->DrawIndexed(DrawAttrs);
 
 		// RENDER ---
 		this->_pSwapChain->Present();
