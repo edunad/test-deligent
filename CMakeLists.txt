@@ -113,12 +113,14 @@ target_link_libraries(${output_target} PRIVATE
     ${EXTRA_LIBS}
 )
 
-if(D3D11_SUPPORTED)
-    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D11-shared)
-endif()
+if(WIN32)
+    if(D3D11_SUPPORTED)
+        target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D11-shared)
+    endif()
 
-if(D3D12_SUPPORTED)
-    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D12-shared)
+    if(D3D12_SUPPORTED)
+        target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D12-shared)
+    endif()
 endif()
 
 if(GL_SUPPORTED)
@@ -127,10 +129,6 @@ endif()
 
 if(VULKAN_SUPPORTED)
     target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineVk-shared)
-endif()
-
-if(METAL_SUPPORTED)
-    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineMetal-shared)
 endif()
 
 if(NOT WIN32)

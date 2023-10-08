@@ -220,11 +220,13 @@ namespace test {
 #if GL_SUPPORTED
 			case Diligent::RENDER_DEVICE_TYPE_GL:
 				{
-	#if ENGINE_DLL
+	#if EXPLICITLY_LOAD_ENGINE_GL_DLL
 					// Load the dll and import GetEngineFactoryOpenGL() function
 					auto GetEngineFactoryOpenGL = Diligent::LoadGraphicsEngineOpenGL();
-	#endif
 					auto* pFactoryOpenGL = GetEngineFactoryOpenGL();
+	#else
+					auto* pFactoryOpenGL = Diligent::GetEngineFactoryOpenGL();
+	#endif
 					this->_pEngineFactory = pFactoryOpenGL;
 
 					Diligent::EngineGLCreateInfo EngineCI;
@@ -237,11 +239,13 @@ namespace test {
 #if VULKAN_SUPPORTED
 			case Diligent::RENDER_DEVICE_TYPE_VULKAN:
 				{
-	#if ENGINE_DLL
+	#if EXPLICITLY_LOAD_ENGINE_GL_DLL
 					// Load the dll and import GetEngineFactoryVk() function
 					auto* GetEngineFactoryVk = Diligent::LoadGraphicsEngineVk();
-	#endif
 					auto* pFactoryVk = GetEngineFactoryVk();
+	#else
+					auto* pFactoryOpenGL = Diligent::GetEngineFactoryVk();
+	#endif
 					this->_pEngineFactory = pFactoryVk;
 
 					Diligent::EngineVkCreateInfo EngineCI;
