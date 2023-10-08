@@ -115,20 +115,20 @@ target_link_libraries(${output_target} PRIVATE
 
 if(WIN32)
     if(D3D11_SUPPORTED)
-        target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D11-shared)
+        target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D11-static)
     endif()
 
     if(D3D12_SUPPORTED)
-        target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D12-shared)
+        target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D12-static)
     endif()
 endif()
 
 if(GL_SUPPORTED)
-    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineOpenGL-shared)
+    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineOpenGL-static)
 endif()
 
 if(VULKAN_SUPPORTED)
-    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineVk-shared)
+    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineVk-static)
 endif()
 
 if(NOT WIN32)
