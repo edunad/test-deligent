@@ -114,21 +114,27 @@ target_link_libraries(${output_target} PRIVATE
 )
 
 if(WIN32)
+    set(DILIGENT_LINK_MODE shared)
+    message(STATUS "Setting deligent mode to: shared")
+
     if(D3D11_SUPPORTED)
-        target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D11-static)
+        target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D11-${DILIGENT_LINK_MODE})
     endif()
 
     if(D3D12_SUPPORTED)
-        target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D12-static)
+        target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineD3D12-${DILIGENT_LINK_MODE})
     endif()
+else()
+    set(DILIGENT_LINK_MODE static)
+    message(STATUS "Setting deligent mode to: static")
 endif()
 
 if(GL_SUPPORTED)
-    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineOpenGL-static)
+    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineOpenGL-${DILIGENT_LINK_MODE})
 endif()
 
 if(VULKAN_SUPPORTED)
-    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineVk-static)
+    target_link_libraries(${output_target} PRIVATE Diligent-GraphicsEngineVk-${DILIGENT_LINK_MODE})
 endif()
 
 if(NOT WIN32)
