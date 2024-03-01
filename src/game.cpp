@@ -308,6 +308,9 @@ namespace test {
 		// Tell the system that the shader source code is in HLSL.
 		// For OpenGL, the engine will convert this into GLSL under the hood.
 		ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
+		ShaderCI.CompileFlags = Diligent::SHADER_COMPILE_FLAG_ENABLE_UNBOUNDED_ARRAYS;
+		ShaderCI.ShaderCompiler = Diligent::SHADER_COMPILER_DXC;
+		ShaderCI.GLSLExtensions = "#extension GL_EXT_nonuniform_qualifier : require\n";
 
 		// OpenGL backend requires emulated combined HLSL texture samplers (g_Texture + g_Texture_sampler combination)
 		ShaderCI.Desc.UseCombinedTextureSamplers = true;
@@ -334,6 +337,16 @@ namespace test {
 			CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
 			CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
 			this->_pDevice->CreateBuffer(CBDesc, nullptr, &this->_VSConstants);
+		}
+
+		{
+			Diligent::BufferDesc CBDesc;
+			CBDesc.Name = "Fake constant";
+			CBDesc.Size = sizeof(FakeConstant);
+			CBDesc.Usage = Diligent::USAGE_DYNAMIC;
+			CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+			CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+			this->_pDevice->CreateBuffer(CBDesc, nullptr, &this->_PSConstants);
 		}
 
 		// Create a pixel shader
@@ -369,6 +382,7 @@ namespace test {
 		// type (SHADER_RESOURCE_VARIABLE_TYPE_STATIC) will be used. Static variables never
 		// change and are bound directly through the pipeline state object.
 		this->_pPSO->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "Constants")->Set(this->_VSConstants);
+		this->_pPSO->GetStaticVariableByName(Diligent::SHADER_TYPE_PIXEL, "Constants")->Set(this->_PSConstants);
 
 		// Create a shader resource binding object and bind all static resources in it
 		this->_pPSO->CreateShaderResourceBinding(&this->_pSRB, true);
@@ -561,6 +575,12 @@ namespace test {
 			// Map the buffer and write current world-view-projection matrix
 			Diligent::MapHelper<Diligent::float4x4> CBConstants(this->_pImmediateContext, this->_VSConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
 			*CBConstants = this->_WorldViewProjMatrix.Transpose();
+		}
+
+		{
+			// Map the buffer and write current world-view-projection matrix
+			Diligent::MapHelper<FakeConstant> CBConstants(this->_pImmediateContext, this->_PSConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+			*CBConstants = {{1, 0, 0, 0}, {0.343F, 0, 0.45F, 0}};
 		}
 
 		// Bind vertex and index buffers

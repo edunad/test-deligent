@@ -1,3 +1,9 @@
+cbuffer Constants
+{
+    uint4 pixelIds;
+    float4 litData;
+};
+
 struct PSInput
 {
     float4 Pos   : SV_POSITION;
@@ -20,5 +26,5 @@ void main(in  PSInput  PSIn,
     // Use fast approximation for gamma correction.
     Color.rgb = pow(Color.rgb, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
 #endif
-    PSOut.Color = Color;
+    PSOut.Color = float4(Color.r + pixelIds.x, Color.g, Color.b, 1);
 }

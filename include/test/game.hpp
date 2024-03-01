@@ -12,7 +12,7 @@
 #include <Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <Graphics/GraphicsEngine/interface/SwapChain.h>
 
-#include <memory>
+#include <array>
 
 struct GLFWwindow;
 
@@ -20,6 +20,11 @@ namespace test {
 
 	using TClock = std::chrono::high_resolution_clock;
 	using TSeconds = std::chrono::duration<float>;
+
+	struct FakeConstant {
+		std::array<uint32_t, 4> textureIDs = {};
+		std::array<float, 4> pixelData = {};
+	};
 
 	class TestGame {
 	protected:
@@ -39,6 +44,7 @@ namespace test {
 		Diligent::RefCntAutoPtr<Diligent::IBuffer> _CubeVertexBuffer;
 		Diligent::RefCntAutoPtr<Diligent::IBuffer> _CubeIndexBuffer;
 		Diligent::RefCntAutoPtr<Diligent::IBuffer> _VSConstants;
+		Diligent::RefCntAutoPtr<Diligent::IBuffer> _PSConstants;
 
 		Diligent::float4x4 _WorldViewProjMatrix;
 
