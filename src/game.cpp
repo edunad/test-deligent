@@ -75,7 +75,6 @@
 #include <array>
 #include <chrono>
 #include <cmath>
-#include <thread>
 
 using namespace std::chrono_literals;
 
@@ -290,27 +289,27 @@ namespace test {
 		PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
 
 		// clang-format off
-    // This tutorial will render to a single render target
-    PSOCreateInfo.GraphicsPipeline.NumRenderTargets             = 1;
-    // Set render target format which is the format of the swap chain's color buffer
-    PSOCreateInfo.GraphicsPipeline.RTVFormats[0]                = this->_pSwapChain->GetDesc().ColorBufferFormat;
-    // Set depth buffer format which is the format of the swap chain's back buffer
-    PSOCreateInfo.GraphicsPipeline.DSVFormat                    = this->_pSwapChain->GetDesc().DepthBufferFormat;
-    // Primitive topology defines what kind of primitives will be rendered by this pipeline state
-    PSOCreateInfo.GraphicsPipeline.PrimitiveTopology            = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    // Cull back faces
-    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode      = Diligent::CULL_MODE_BACK;
-    // Enable depth testing
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
+		// This tutorial will render to a single render target
+		PSOCreateInfo.GraphicsPipeline.NumRenderTargets             = 1;
+		// Set render target format which is the format of the swap chain's color buffer
+		PSOCreateInfo.GraphicsPipeline.RTVFormats[0]                = this->_pSwapChain->GetDesc().ColorBufferFormat;
+		// Set depth buffer format which is the format of the swap chain's back buffer
+		PSOCreateInfo.GraphicsPipeline.DSVFormat                    = this->_pSwapChain->GetDesc().DepthBufferFormat;
+		// Primitive topology defines what kind of primitives will be rendered by this pipeline state
+		PSOCreateInfo.GraphicsPipeline.PrimitiveTopology            = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		// Cull back faces
+		PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode      = Diligent::CULL_MODE_BACK;
+		// Enable depth testing
+		PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
 		// clang-format on
 
 		Diligent::ShaderCreateInfo ShaderCI;
 		// Tell the system that the shader source code is in HLSL.
 		// For OpenGL, the engine will convert this into GLSL under the hood.
 		ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
-
-		// OpenGL backend requires emulated combined HLSL texture samplers (g_Texture + g_Texture_sampler combination)
-		ShaderCI.Desc.UseCombinedTextureSamplers = true;
+		ShaderCI.CompileFlags = Diligent::SHADER_COMPILE_FLAG_ENABLE_UNBOUNDED_ARRAYS;
+		ShaderCI.ShaderCompiler = Diligent::SHADER_COMPILER_DXC;
+		ShaderCI.GLSLExtensions = "#extension GL_EXT_nonuniform_qualifier : require\n";
 
 		// In this tutorial, we will load shaders from file. To be able to do that,
 		// we need to create a shader source stream factory
@@ -325,6 +324,7 @@ namespace test {
 			ShaderCI.Desc.Name = "Cube VS";
 			ShaderCI.FilePath = "cube.vsh";
 			this->_pDevice->CreateShader(ShaderCI, &pVS);
+
 			// Create dynamic uniform buffer that will store our transformation matrix
 			// Dynamic buffers can be frequently updated by the CPU
 			Diligent::BufferDesc CBDesc;
@@ -335,6 +335,53 @@ namespace test {
 			CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
 			this->_pDevice->CreateBuffer(CBDesc, nullptr, &this->_VSConstants);
 		}
+
+		{
+			Diligent::BufferDesc CBDesc;
+			CBDesc.Name = "Fake constant";
+			CBDesc.Size = sizeof(FakeConstant);
+			CBDesc.Usage = Diligent::USAGE_DYNAMIC;
+			CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+			CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+			this->_pDevice->CreateBuffer(CBDesc, nullptr, &this->_PSConstants);
+		}
+
+		// SIUGNATURE ----------------------
+		Diligent::PipelineResourceSignatureDesc PRSDesc;
+		PRSDesc.Name = "BINDLESS";
+		PRSDesc.BindingIndex = 0;
+
+		std::vector<Diligent::PipelineResourceDesc> resources = {
+		    {Diligent::SHADER_TYPE_VERTEX, "Constants", 1, Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC},
+		    {Diligent::SHADER_TYPE_PIXEL, "Constants", 1, Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC},
+		};
+
+		PRSDesc.Resources = resources.data();
+		PRSDesc.NumResources = static_cast<uint8_t>(resources.size());
+
+		Diligent::SamplerDesc SamLinearClampDesc{
+		    Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+		    Diligent::TEXTURE_ADDRESS_WRAP, Diligent::TEXTURE_ADDRESS_WRAP, Diligent::TEXTURE_ADDRESS_WRAP};
+
+		std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+		    {Diligent::SHADER_TYPE_PIXEL, "g_Sampler", SamLinearClampDesc},
+		};
+
+		PRSDesc.ImmutableSamplers = samplers.data();
+		PRSDesc.NumImmutableSamplers = static_cast<uint32_t>(samplers.size());
+
+		Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature> signature;
+		this->_pDevice->CreatePipelineResourceSignature(PRSDesc, &signature);
+
+		signature->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "Constants")->Set(_VSConstants);
+		signature->GetStaticVariableByName(Diligent::SHADER_TYPE_PIXEL, "Constants")->Set(_PSConstants);
+		//  ------------------
+
+		// ATTACH -----
+		std::array<Diligent::IPipelineResourceSignature*, 1> signatures = {signature};
+		PSOCreateInfo.ResourceSignaturesCount = 1;
+		PSOCreateInfo.ppResourceSignatures = signatures.data();
+		// ------------
 
 		// Create a pixel shader
 		Diligent::RefCntAutoPtr<Diligent::IShader> pPS;
@@ -365,13 +412,8 @@ namespace test {
 
 		this->_pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &this->_pPSO);
 
-		// Since we did not explcitly specify the type for 'Constants' variable, default
-		// type (SHADER_RESOURCE_VARIABLE_TYPE_STATIC) will be used. Static variables never
-		// change and are bound directly through the pipeline state object.
-		this->_pPSO->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "Constants")->Set(this->_VSConstants);
-
 		// Create a shader resource binding object and bind all static resources in it
-		this->_pPSO->CreateShaderResourceBinding(&this->_pSRB, true);
+		signature->CreateShaderResourceBinding(&this->_pSRB, true);
 
 		this->createCube();
 	}
@@ -563,6 +605,12 @@ namespace test {
 			*CBConstants = this->_WorldViewProjMatrix.Transpose();
 		}
 
+		{
+			// Map the buffer and write current world-view-projection matrix
+			Diligent::MapHelper<FakeConstant> CBConstants(this->_pImmediateContext, this->_PSConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+			*CBConstants = {{1, 0, 0, 0}, {0.343F, 0, 0.45F, 0}};
+		}
+
 		// Bind vertex and index buffers
 		const uint64_t offset = 0;
 		Diligent::IBuffer* pBuffs[] = {this->_CubeVertexBuffer};
@@ -572,9 +620,7 @@ namespace test {
 		// Set the pipeline state in the immediate context
 		this->_pImmediateContext->SetPipelineState(this->_pPSO);
 
-		// Commit shader resources. RESOURCE_STATE_TRANSITION_MODE_TRANSITION mode
-		// makes sure that resources are transitioned to required states.
-		this->_pImmediateContext->CommitShaderResources(this->_pSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+		this->_pImmediateContext->CommitShaderResources(this->_pSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_VERIFY);
 
 		Diligent::DrawIndexedAttribs DrawAttrs;    // This is an indexed draw call
 		DrawAttrs.IndexType = Diligent::VT_UINT32; // Index type

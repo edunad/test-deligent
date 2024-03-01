@@ -1,3 +1,8 @@
+cbuffer Constants {
+    uint4 textureIDs;
+    float4 litData;
+};
+
 struct PSInput
 {
     float4 Pos   : SV_POSITION;
@@ -18,7 +23,7 @@ void main(in  PSInput  PSIn,
     float4 Color = PSIn.Color;
 #if CONVERT_PS_OUTPUT_TO_GAMMA
     // Use fast approximation for gamma correction.
-    Color.rgb = pow(Color.rgb, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
+    Color.rgb = pow(Color.rgb, float3(1.0 / 2.2, textureIDs.x / 2.2, 1.0 / 2.2));
 #endif
-    PSOut.Color = Color;
+    PSOut.Color = float4(1,textureIDs.x,1,1);
 }
